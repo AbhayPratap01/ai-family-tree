@@ -1,6 +1,31 @@
 {
-    "Abhay": {
-        "father": "",
-        "mother": "Anita"
-    }
+  "Abhay": {
+    "father": "Avinendra",
+    "mother": "Anita",
+    "siblings": [
+      "Uday"
+    ]
+  },
+  "Anita": {
+    "father": "",
+    "mother": "",
+    "siblings": []
+  },
+  "Avinendra": {
+    "father": "",
+    "mother": "",
+    "siblings": []
+  },
+  "Uday": {
+    "father": "",
+    "mother": "",
+    "siblings": [
+      "Abhay"
+    ]
+  },
+  "Yoyo": {
+    "father": "Uday",
+    "mother": "",
+    "siblings": []
+  }
 }

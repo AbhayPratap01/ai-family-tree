@@ -1,131 +1,95 @@
-import re
-import requests, json
-import networkx as nx
-import matplotlib.pyplot as plt
-import os
+import copy
 
-FAMILY_FILE = "family_tree.json"
-
-def load_tree():
-    """Load existing family tree from JSON file if available."""
-    if os.path.exists(FAMILY_FILE):
-        with open(FAMILY_FILE, "r") as f:
-            return json.load(f)
-    return {}
-
-def save_tree(tree):
-    """Save current family tree to JSON file."""
-    with open(FAMILY_FILE, "w") as f:
-        json.dump(tree, f, indent=4)
+from family_tree import (
+    add_parsed_relationship,
+    generation_levels,
+    load_tree,
+    parse_relationships,
+    parse_with_ollama,
+    save_tree,
+)
 
 
-# Global graph for family relationships
-G = nx.DiGraph()
+def show_tree(tree):
+    try:
+        levels = generation_levels(tree)
+    except ValueError as error:
+        print(f"Cannot display this tree: {error}")
+        return
 
-def query_ollama(prompt):
-    """Send a query to the local Ollama model"""
-    url = "http://localhost:11434/api/generate"
-    payload = {"model": "tinyllama", "prompt": prompt}
-    response = requests.post(url, json=payload, stream=True)
+    by_generation = {}
+    for name, level in levels.items():
+        by_generation.setdefault(level, []).append(name)
 
-    output = ""
-    for line in response.iter_lines():
-        if line:
-            data = json.loads(line)
-            output += data.get("response", "")
-    return output.strip()
+    for level in sorted(by_generation):
+        print(f"\nGeneration {level + 1}")
+        for name in sorted(by_generation[level], key=str.casefold):
+            relations = tree.get(name, {})
+            parents = [
+                f"{role}: {relations[role]}"
+                for role in ("mother", "father")
+                if relations.get(role)
+            ]
+            if relations.get("siblings"):
+                parents.append("siblings: " + ", ".join(relations["siblings"]))
+            print(f"  - {name}" + (f" ({'; '.join(parents)})" if parents else ""))
 
-def extract_relationships(text):
-    """Simple rule-based relationship extractor"""
-    relation = {}
-
-    # Convert to lowercase for easy pattern matching
-    text = text.lower()
-
-    # Detect father and mother relationships
-    father_match = re.search(r"(\w+)'s father is (\w+)", text)
-    mother_match = re.search(r"(\w+)'s mother is (\w+)", text)
-    sibling_match = re.search(r"(\w+) is (\w+)'s (brother|sister|sibling)", text)
-
-    if father_match:
-        relation["child"] = father_match.group(1).capitalize()
-        relation["father"] = father_match.group(2).capitalize()
-
-    if mother_match:
-        relation["child"] = mother_match.group(1).capitalize()
-        relation["mother"] = mother_match.group(2).capitalize()
-
-    if sibling_match:
-        relation["sibling1"] = sibling_match.group(1).capitalize()
-        relation["sibling2"] = sibling_match.group(2).capitalize()
-
-    return relation if relation else None
-
-
-def update_tree(relation):
-    """Add relationships to the graph"""
-    if "father" in relation and "child" in relation:
-        G.add_edge(relation["father"], relation["child"], label="father")
-    if "mother" in relation and "child" in relation:
-        G.add_edge(relation["mother"], relation["child"], label="mother")
-    if "sibling1" in relation and "sibling2" in relation:
-        G.add_edge(relation["sibling1"], relation["sibling2"], label="sibling")
-
-def visualize_tree():
-    """Draw the current family tree"""
-    plt.figure(figsize=(8,6))
-    pos = nx.spring_layout(G)
-    nx.draw(G, pos, with_labels=True, node_color="lightblue", node_size=2000, font_size=10, font_weight="bold")
-    edge_labels = nx.get_edge_attributes(G, "label")
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
-    plt.title("AI Family Tree (TinyLlama)")
-    plt.show()
 
 def main():
-    print("👋 Welcome to AI Family Tree Builder (TinyLlama Edition)")
-    print("Type relationships like 'Abhay's father is Raj and mother is Neha.'")
-    print("Type 'show tree' to visualize, 'save' to save data, or 'exit' to quit.\n")
+    try:
+        family = load_tree()
+    except (OSError, ValueError) as error:
+        print(f"Could not load the saved family tree: {error}")
+        return 1
 
-    # Load old data if exists
-    family_tree = load_tree()
-    print(f"📂 Loaded {len(family_tree)} saved records.\n")
-
-    # Restore old relationships into graph
-    for child, rel in family_tree.items():
-        if "father" in rel:
-            G.add_edge(rel["father"], child, label="father")
-        if "mother" in rel:
-            G.add_edge(rel["mother"], child, label="mother")
+    print("Family Tree Builder")
+    print("Enter a parent or sibling relationship, 'show tree', 'save', or 'exit'.")
+    print(f"Loaded {len(family)} family members.\n")
 
     while True:
-        user_input = input("🗣️  You: ")
+        try:
+            user_input = input("You: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nGoodbye.")
+            return 0
 
-        if user_input.lower() == "exit":
-            print("👋 Exiting Family Tree Builder. Goodbye!")
-            break
+        command = user_input.casefold()
+        if command in {"exit", "quit"}:
+            return 0
+        if command in {"show", "show tree"}:
+            show_tree(family)
+            continue
+        if command == "save":
+            try:
+                save_tree(family)
+                print("Family tree saved.")
+            except OSError as error:
+                print(f"Could not save the family tree: {error}")
+            continue
 
-        elif user_input.lower() == "save":
-            save_tree(family_tree)
-            print("💾 Family tree saved successfully!")
+        relationships = parse_relationships(user_input)
+        if not relationships and user_input:
+            use_ai = input("Try local Ollama for this phrasing? [y/N] ").strip().casefold()
+            if use_ai in {"y", "yes"}:
+                try:
+                    relationships = parse_with_ollama(user_input)
+                except (OSError, RuntimeError, ValueError) as error:
+                    print(f"Local AI could not interpret that: {error}")
 
-        elif user_input.lower() == "show tree":
-            visualize_tree()
+        if not relationships:
+            print("No parent relationship found. Try naming a mother or father.")
+            continue
 
-        else:
-            relation = extract_relationships(user_input)
-            if relation:
-                update_tree(relation)
-                # Save new relationship in dictionary
-                child = relation.get("child")
-                if child:
-                    family_tree[child] = {
-                        "father": relation.get("father", ""),
-                        "mother": relation.get("mother", "")
-                    }
-                print("✅ Relationship added and stored in memory.")
-            else:
-                print("⚠️ Could not understand the relationship. Try again.")
+        updated = copy.deepcopy(family)
+        try:
+            for relation in relationships:
+                add_parsed_relationship(updated, relation)
+            save_tree(updated)
+            family = updated
+            print("Relationship added and saved.")
+        except (OSError, ValueError) as error:
+            print(f"Could not add that relationship: {error}")
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

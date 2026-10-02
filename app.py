@@ -12,7 +12,6 @@ from family_tree import (
     generation_levels,
     load_tree,
     parse_relationships,
-    parse_with_ollama,
     save_tree,
 )
 
@@ -218,22 +217,14 @@ with st.sidebar:
                 placeholder="For example: Abhay's dad is Raj, and Mira is his sister",
                 help="Try “Raj is Abhay's father,” “Mira is Abhay's sister,” or “Abhay and Mira are siblings.”",
             )
-            use_ai = st.checkbox("Use local Ollama if the description is unclear", value=False)
-            model = st.text_input("Ollama model", value="tinyllama", disabled=not use_ai)
             description_submitted = st.form_submit_button("Interpret description", width="stretch")
 
         if description_submitted:
             relationships = parse_relationships(description)
-            if not relationships and use_ai and description.strip():
-                try:
-                    relationships = parse_with_ollama(description, model.strip() or "tinyllama")
-                except (ValueError, OSError, RuntimeError) as error:
-                    st.error(f"Local Ollama could not interpret that: {error}")
-
             if not description.strip():
                 st.warning("Enter a relationship description first.")
             elif not relationships:
-                st.info("No clear relationship found. Try selecting one above or enable local Ollama.")
+                st.info("No clear relationship found. Try selecting a relationship from the dropdowns.")
             else:
                 updated = copy.deepcopy(family)
                 try:

@@ -1,6 +1,6 @@
 # AI Family Tree
 
-A local-first family-tree builder with a Streamlit interface, an interactive generation chart, and an optional Ollama language-model fallback.
+A local-first family-tree builder with a Streamlit interface and an interactive generation chart.
 
 ## Run
 
@@ -17,8 +17,6 @@ Choose an existing person or add a new name, then choose whether the first perso
 
 Relationships are saved in `family_tree.json` using the existing child-to-parent structure, with sibling lists added compatibly for family members. The app prevents conflicting parent assignments and cycles; removing a person clears their parent and sibling references from the remaining tree.
 
-Ollama is optional and is not required by other users. It runs on the machine hosting the app, not on each visitor's device. A hosted app can use Ollama only when that host has a reachable Ollama service and model; otherwise the dropdown workflow and built-in phrase parser work without an SLM.
-
 ## Deploy
 
 [![Deploy to Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/deploy?repository=AbhayPratap01/ai-family-tree&branch=main&mainModule=app.py)
@@ -34,4 +32,3 @@ python -m pip install pytest
 python -m pytest -q
 ```
 
-`python test_ollama.py` is an optional connectivity check and requires Ollama with the `tinyllama` model installed. It is not run during normal test collection.

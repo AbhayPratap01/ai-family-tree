@@ -5,7 +5,6 @@ from family_tree import (
     generation_levels,
     load_tree,
     parse_relationships,
-    parse_with_ollama,
     save_tree,
 )
 
@@ -68,16 +67,8 @@ def main():
             continue
 
         relationships = parse_relationships(user_input)
-        if not relationships and user_input:
-            use_ai = input("Try local Ollama for this phrasing? [y/N] ").strip().casefold()
-            if use_ai in {"y", "yes"}:
-                try:
-                    relationships = parse_with_ollama(user_input)
-                except (OSError, RuntimeError, ValueError) as error:
-                    print(f"Local AI could not interpret that: {error}")
-
         if not relationships:
-            print("No parent relationship found. Try naming a mother or father.")
+            print("No clear relationship found. Try naming a parent or sibling explicitly.")
             continue
 
         updated = copy.deepcopy(family)

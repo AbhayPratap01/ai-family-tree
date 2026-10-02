@@ -1,5 +1,4 @@
 import json
-from unittest.mock import Mock, patch
 
 import pytest
 
@@ -12,7 +11,6 @@ from family_tree import (
     generation_levels,
     load_tree,
     parse_relationships,
-    parse_with_ollama,
     save_tree,
 )
 
@@ -98,20 +96,6 @@ def test_parsed_sibling_relationship_updates_shared_tree():
     add_parsed_relationship(tree, {"person": "Abhay", "sibling": "Mira"})
     assert tree["Abhay"]["siblings"] == ["Mira"]
     assert tree["Mira"]["siblings"] == ["Abhay"]
-
-
-def test_ollama_response_can_include_siblings():
-    response = Mock()
-    response.json.return_value = {
-        "response": json.dumps({
-            "relationships": [{"child": "Abhay", "father": "Raj", "siblings": ["Mira"]}]
-        })
-    }
-    with patch("family_tree.requests.post", return_value=response):
-        assert parse_with_ollama("Abhay's father is Raj and Mira is his sister") == [
-            {"child": "Abhay", "father": "Raj"},
-            {"person": "Abhay", "sibling": "Mira"},
-        ]
 
 
 def test_generation_levels_follow_parent_branches():

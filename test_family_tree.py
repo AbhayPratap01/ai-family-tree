@@ -84,6 +84,19 @@ def test_legacy_sibling_data_is_normalized_to_a_symmetric_link(tmp_path):
     assert tree["Mira"]["siblings"] == ["Abhay"]
 
 
+def test_load_tree_ignores_git_merge_conflict_markers(tmp_path):
+    path = tmp_path / "family_tree.json"
+    path.write_text(
+        "<<<<<<< HEAD\n{\"Abhay\": {\"father\": \"Raj\", \"mother\": \"\"}}\n=======\n{\"Abhay\": {\"father\": \"Raj\", \"mother\": \"Neha\"}}\n>>>>>>> branch\n",
+        encoding="utf-8",
+    )
+    assert load_tree(path) == {
+        "Abhay": {"father": "Raj", "mother": "Neha", "siblings": []},
+        "Raj": {"father": "", "mother": "", "siblings": []},
+        "Neha": {"father": "", "mother": "", "siblings": []},
+    }
+
+
 def test_parent_and_child_cannot_be_added_as_siblings():
     tree = {}
     add_relationship(tree, "Abhay", father="Raj")

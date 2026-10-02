@@ -28,12 +28,40 @@ def _empty_member():
     return {"father": "", "mother": "", "siblings": []}
 
 
+def _clean_json_text(raw_text):
+    text = raw_text.strip()
+    if not text:
+        return "{}"
+    if not any(marker in text for marker in ("<<<<<<<", "=======", ">>>>>>>")):
+        return text
+
+    cleaned_lines = []
+    keep_second_branch = False
+    for line in raw_text.splitlines():
+        if line.startswith("<<<<<<<"):
+            keep_second_branch = False
+            continue
+        if line.startswith("======="):
+            keep_second_branch = True
+            continue
+        if line.startswith(">>>>>>>"):
+            keep_second_branch = False
+            continue
+        if keep_second_branch:
+            cleaned_lines.append(line)
+    cleaned = "\n".join(cleaned_lines).strip()
+    return cleaned or "{}"
+
+
 def load_tree(path=FAMILY_FILE):
     path = Path(path)
     if not path.exists():
         return {}
+    raw_text = path.read_text(encoding="utf-8")
+    if not raw_text.strip():
+        return {}
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(_clean_json_text(raw_text))
     except json.JSONDecodeError as error:
         raise ValueError(f"Invalid JSON at line {error.lineno}, column {error.colno}.") from error
     if not isinstance(data, dict):
